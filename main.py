@@ -1,13 +1,12 @@
 import os
 import hashlib
 from datetime import datetime
-
-import ffmpeg
-from flask import Flask, send_from_directory, jsonify, request, render_template
+from flask import Flask, send_from_directory, jsonify, request, render_template, redirect, url_for
 import subprocess
+import ffmpeg
 
 app = Flask(__name__)
-BASE_DIR = "D:/BaiduNetdiskDownload/shixi/Tools/beifen"  # 替换为你的实际视频目录
+BASE_DIR = "D:/BaiduNetdiskDownload/shixi/Tools/beifen"   # 替换为你的实际视频目录
 THUMBNAIL_DIR = os.path.join(os.path.dirname(__file__), "thumbnails")
 os.makedirs(THUMBNAIL_DIR, exist_ok=True)
 
@@ -21,31 +20,28 @@ def generate_thumbnail(file_path, thumbnail_path):
         ext = os.path.splitext(file_path)[1].lower()
 
         if ext in VIDEO_EXTS:
-            # 获取视频时长并取中间时刻
+            # 使用ffmpeg获取视频中间帧
             probe = ffmpeg.probe(file_path)
             duration = float(probe['format']['duration'])
-            ss_time = duration / 2
+            middle_time = duration / 2
 
-            cmd = [
-                'ffmpeg',
-                '-ss', str(ss_time),
-                '-i', file_path,
-                '-vframes', '1',
-                '-vf', 'scale=320:-1',
-                '-y',
-                thumbnail_path
-            ]
+            (
+                ffmpeg.input(file_path, ss=middle_time)
+                .filter('scale', 320, -1)
+                .output(thumbnail_path, vframes=1)
+                .overwrite_output()
+                .run(capture_stdout=True, capture_stderr=True)
+            )
+            return True
+
         elif ext in IMAGE_EXTS:
             from PIL import Image
             img = Image.open(file_path)
             img.thumbnail((320, 320))
             img.save(thumbnail_path)
             return True
-        else:
-            return False
 
-        subprocess.run(cmd, check=True, capture_output=True)
-        return True
+        return False
     except Exception as e:
         print(f"生成缩略图失败: {str(e)}")
         return False
@@ -139,11 +135,12 @@ def stream_file(filename):
 @app.route('/player')
 def player():
     video_path = request.args.get('path')
+    back_path = request.args.get('back', '/')
     video_name = os.path.basename(video_path)
     return render_template('player.html',
                            video_url=f"/stream/{video_path}",
                            video_name=video_name,
-                           back_url=request.referrer or '/')
+                           back_url=back_path)
 
 
 @app.route('/')
