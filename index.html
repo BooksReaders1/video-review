@@ -7,14 +7,14 @@
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
         .header { position: sticky; top: 0; background: white; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 100; }
-        .path-bar { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .path-nav { position: sticky; top: 60px; background: white; padding: 10px; border-bottom: 1px solid #eee; z-index: 90; }
         .search-box { display: flex; margin-bottom: 10px; }
         .search-box input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         .search-box button { padding: 8px 12px; background: #4CAF50; color: white; border: none; border-radius: 0 4px 4px 0; cursor: pointer; }
         .file-list { list-style: none; padding: 0; margin: 0; background: white; }
         .file-item { padding: 12px; border-bottom: 1px solid #eee; display: flex; align-items: center; cursor: pointer; }
         .file-item:hover { background: #f9f9f9; }
-        .file-icon { margin-right: 12px; font-size: 20px; }
+        .file-icon { margin-right: 12px; font-size: 20px; flex-shrink: 0; }
         .folder-icon { color: #4285F4; }
         .video-icon { color: #EA4335; }
         .image-icon { color: #34A853; }
@@ -22,12 +22,12 @@
         .file-info { flex: 1; min-width: 0; }
         .file-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .file-meta { font-size: 12px; color: #666; display: flex; justify-content: space-between; margin-top: 2px; }
-        .thumbnail { width: 60px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 12px; background: #eee; }
-        #video-player { position: fixed; bottom: 0; left: 0; right: 0; width: 100%; background: black; z-index: 200; display: none; }
+        .thumbnail { width: 60px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 12px; background: #eee; flex-shrink: 0; }
         .loading { text-align: center; padding: 20px; color: #666; }
         .sort-options { display: flex; gap: 5px; margin-top: 5px; }
-        .sort-btn { padding: 4px 8px; background: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+        .sort-btn { padding: 4px 8px; background: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 12px; }
         .sort-btn.active { background: #4285F4; color: white; border-color: #4285F4; }
+        .back-btn { background: #f0f0f0; padding: 8px 12px; border-radius: 4px; margin-right: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -36,8 +36,7 @@
             <input type="text" id="search-input" placeholder="搜索文件...">
             <button onclick="performSearch()">搜索</button>
         </div>
-        <div class="path-bar" id="path-bar">
-            <div id="current-path">/</div>
+        <div class="path-nav" id="path-nav">
             <div class="sort-options">
                 <button class="sort-btn" data-sort="name">名称</button>
                 <button class="sort-btn active" data-sort="type">类型</button>
@@ -48,8 +47,6 @@
 
     <ul class="file-list" id="file-list"></ul>
     <div class="loading" id="loading">加载中...</div>
-
-    <video id="video-player" controls></video>
 
     <script>
         const API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:${window.location.port || 5000}`;
@@ -69,7 +66,6 @@
         function loadFiles(path = "") {
             showLoading();
             currentPath = path;
-            document.getElementById('current-path').textContent = path || "/";
 
             fetch(`${API_BASE_URL}/files/${path}?sort=${currentSort}&order=${currentOrder}`)
                 .then(res => res.json())
@@ -77,18 +73,29 @@
                     const list = document.getElementById('file-list');
                     list.innerHTML = '';
 
-                    // 添加返回按钮（如果有上级目录）
+                    // 添加返回按钮（固定在上方导航栏）
+                    const pathNav = document.getElementById('path-nav');
                     if (data.parent !== null) {
-                        const backItem = document.createElement('li');
-                        backItem.className = 'file-item';
-                        backItem.innerHTML = `
-                            <span class="file-icon folder-icon">←</span>
-                            <div class="file-info">
-                                <div class="file-name">返回上级</div>
+                        pathNav.innerHTML = `
+                            <div style="display: flex; align-items: center;">
+                                <div class="back-btn" onclick="loadFiles('${data.parent}')">← 返回上级</div>
+                                <div id="current-path" style="flex: 1;">${data.path || "/"}</div>
+                            </div>
+                            <div class="sort-options">
+                                <button class="sort-btn" data-sort="name">名称</button>
+                                <button class="sort-btn ${currentSort === 'type' ? 'active' : ''}" data-sort="type">类型</button>
+                                <button class="sort-btn ${currentSort === 'date' ? 'active' : ''}" data-sort="date">日期</button>
                             </div>
                         `;
-                        backItem.onclick = () => loadFiles(data.parent);
-                        list.appendChild(backItem);
+                    } else {
+                        pathNav.innerHTML = `
+                            <div id="current-path">${data.path || "/"}</div>
+                            <div class="sort-options">
+                                <button class="sort-btn" data-sort="name">名称</button>
+                                <button class="sort-btn ${currentSort === 'type' ? 'active' : ''}" data-sort="type">类型</button>
+                                <button class="sort-btn ${currentSort === 'date' ? 'active' : ''}" data-sort="date">日期</button>
+                            </div>
+                        `;
                     }
 
                     // 添加文件和文件夹
@@ -128,16 +135,11 @@
                             </div>
                         `;
 
-                        li.onclick = (e) => {
-                            if (e.target.tagName === 'IMG' || e.target.tagName === 'SPAN') return;
-
+                        li.onclick = () => {
                             if (item.is_dir) {
                                 loadFiles(item.path);
                             } else if (item.is_video) {
-                                const player = document.getElementById('video-player');
-                                player.style.display = 'block';
-                                player.src = `${API_BASE_URL}/stream/${item.path}`;
-                                player.play();
+                                window.open(`${API_BASE_URL}/player?path=${encodeURIComponent(item.path)}`, '_blank');
                             } else if (item.is_image) {
                                 window.open(`${API_BASE_URL}/stream/${item.path}`, '_blank');
                             }
@@ -169,12 +171,12 @@
         }
 
         // 初始化排序按钮
-        document.querySelectorAll('.sort-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('sort-btn')) {
                 document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
+                e.target.classList.add('active');
 
-                const sort = this.dataset.sort;
+                const sort = e.target.dataset.sort;
                 if (currentSort === sort) {
                     currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
                 } else {
@@ -183,7 +185,7 @@
                 }
 
                 loadFiles(currentPath);
-            });
+            }
         });
 
         // 初始化加载根目录

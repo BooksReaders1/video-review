@@ -1,7 +1,9 @@
 import os
 import hashlib
 from datetime import datetime
-from flask import Flask, send_from_directory, jsonify, request
+
+import ffmpeg
+from flask import Flask, send_from_directory, jsonify, request, render_template
 import subprocess
 
 app = Flask(__name__)
@@ -14,20 +16,26 @@ VIDEO_EXTS = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv']
 IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
 
 
-# 生成缩略图
 def generate_thumbnail(file_path, thumbnail_path):
     try:
-        if os.path.splitext(file_path)[1].lower() in VIDEO_EXTS:
+        ext = os.path.splitext(file_path)[1].lower()
+
+        if ext in VIDEO_EXTS:
+            # 获取视频时长并取中间时刻
+            probe = ffmpeg.probe(file_path)
+            duration = float(probe['format']['duration'])
+            ss_time = duration / 2
+
             cmd = [
                 'ffmpeg',
+                '-ss', str(ss_time),
                 '-i', file_path,
-                '-ss', '00:00:01',
                 '-vframes', '1',
                 '-vf', 'scale=320:-1',
                 '-y',
                 thumbnail_path
             ]
-        elif os.path.splitext(file_path)[1].lower() in IMAGE_EXTS:
+        elif ext in IMAGE_EXTS:
             from PIL import Image
             img = Image.open(file_path)
             img.thumbnail((320, 320))
@@ -50,7 +58,7 @@ def list_files(subpath):
         target_dir = os.path.join(BASE_DIR, subpath)
 
         # 获取排序参数
-        sort_by = request.args.get('sort', 'type')  # 默认按类型排序
+        sort_by = request.args.get('sort', 'type')
         order = request.args.get('order', 'desc' if sort_by == 'date' else 'asc')
 
         items = []
@@ -61,13 +69,13 @@ def list_files(subpath):
 
             # 确定文件类型优先级
             if is_dir:
-                file_type = 0  # 文件夹最高优先级
+                file_type = 0
             elif ext in VIDEO_EXTS:
-                file_type = 1  # 视频
+                file_type = 1
             elif ext in IMAGE_EXTS:
-                file_type = 2  # 图片
+                file_type = 2
             else:
-                file_type = 3  # 其他文件
+                file_type = 3
 
             item = {
                 "name": name,
@@ -82,7 +90,7 @@ def list_files(subpath):
                 "has_thumbnail": False
             }
 
-            # 生成缩略图（视频和图片）
+            # 生成缩略图
             if item['is_video'] or item['is_image']:
                 thumbnail_name = f"{hashlib.md5(full_path.encode()).hexdigest()}.jpg"
                 thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_name)
@@ -97,14 +105,14 @@ def list_files(subpath):
 
             items.append(item)
 
-        # 排序逻辑：先按类型，再按时间倒序
+        # 排序逻辑
         items.sort(key=lambda x: (
             x['type'],
             -x['date'] if sort_by == 'date' and order == 'desc' else x['date'],
             x['name'].lower()
         ))
 
-        # 转换日期格式用于显示
+        # 转换日期格式
         for item in items:
             item['date'] = datetime.fromtimestamp(item['date']).strftime('%Y-%m-%d %H:%M')
 
@@ -114,8 +122,6 @@ def list_files(subpath):
             "parent": os.path.dirname(subpath).replace('\\', '/') if subpath else None
         })
 
-    except FileNotFoundError:
-        return jsonify({"error": "Directory not found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -128,6 +134,16 @@ def get_thumbnail(filename):
 @app.route('/stream/<path:filename>')
 def stream_file(filename):
     return send_from_directory(BASE_DIR, filename)
+
+
+@app.route('/player')
+def player():
+    video_path = request.args.get('path')
+    video_name = os.path.basename(video_path)
+    return render_template('player.html',
+                           video_url=f"/stream/{video_path}",
+                           video_name=video_name,
+                           back_url=request.referrer or '/')
 
 
 @app.route('/')
