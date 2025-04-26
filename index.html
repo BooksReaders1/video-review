@@ -1,378 +1,124 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>局域网视频浏览器</title>
+    <meta charset="UTF-8">
+    <title>局域网文件浏览器</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        :root {
-            --primary-color: #4285f4;
-            --secondary-color: #34a853;
-            --danger-color: #ea4335;
-        }
-        body { 
-            font-family: 'Segoe UI', Arial, sans-serif; 
-            padding: 0; 
-            margin: 0; 
-            background: #f5f5f5;
-            color: #333;
-        }
-        .header { 
-            position: sticky; 
-            top: 0; 
-            background: white; 
-            padding: 10px 15px; 
-            z-index: 100;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .path-bar { 
-            background: #f0f0f0; 
-            padding: 10px 15px; 
-            margin: 10px 15px; 
-            border-radius: 8px;
-            word-break: break-all;
-            font-size: 14px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .sort-options {
-            display: flex;
-            gap: 5px;
-        }
-        .sort-btn {
-            padding: 4px 8px;
-            font-size: 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background: white;
-            cursor: pointer;
-        }
-        .sort-btn.active {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-        .search-box {
-            display: flex;
-            margin-bottom: 10px;
-            gap: 5px;
-        }
-        .search-box input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            outline: none;
-        }
-        .search-box input:focus {
-            border-color: var(--primary-color);
-        }
-        .search-box button {
-            padding: 0 15px;
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        .file-list { 
-            list-style: none; 
-            padding: 0; 
-            margin: 0; 
-            background: white;
-        }
-        .file-item { 
-            padding: 12px 15px; 
-            border-bottom: 1px solid #eee; 
-            display: flex; 
-            align-items: center;
-            transition: background 0.2s;
-        }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5; }
+        .header { position: sticky; top: 0; background: white; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 100; }
+        .path-bar { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .search-box { display: flex; margin-bottom: 10px; }
+        .search-box input { flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .search-box button { padding: 8px 12px; background: #4CAF50; color: white; border: none; border-radius: 0 4px 4px 0; cursor: pointer; }
+        .file-list { list-style: none; padding: 0; margin: 0; background: white; }
+        .file-item { padding: 12px; border-bottom: 1px solid #eee; display: flex; align-items: center; cursor: pointer; }
         .file-item:hover { background: #f9f9f9; }
-        .file-icon { 
-            margin-right: 12px; 
-            width: 24px; 
-            text-align: center;
-            flex-shrink: 0;
-            font-size: 20px;
-        }
-        .file-info { 
-            flex: 1; 
-            min-width: 0; 
-            overflow: hidden;
-        }
-        .file-name { 
-            font-weight: 500; 
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 2px;
-        }
-        .file-meta {
-            font-size: 12px;
-            color: #666;
-            display: flex;
-            justify-content: space-between;
-        }
-        .dir-icon { color: var(--primary-color); }
-        .video-icon { color: var(--secondary-color); }
-        .thumbnail {
-            width: 60px;
-            height: 40px;
-            object-fit: cover;
-            border-radius: 4px;
-            margin-right: 12px;
-            background: #eee;
-            flex-shrink: 0;
-        }
-        #video-player {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            width: 100%;
-            background: #000;
-            z-index: 200;
-            display: none;
-        }
-        .search-results {
-            display: none;
-            background: white;
-            padding: 15px;
-        }
-        .search-result-item {
-            padding: 12px 0;
-            border-bottom: 1px solid #eee;
-        }
-        .search-result-path {
-            font-size: 12px;
-            color: #888;
-            margin-top: 3px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .close-search {
-            display: none;
-            margin: 15px;
-            padding: 10px;
-            text-align: center;
-            color: var(--primary-color);
-            cursor: pointer;
-            font-weight: 500;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255,255,255,0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 300;
-            display: none;
-        }
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary-color);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #666;
-        }
-        .view-switcher {
-            display: flex;
-            margin: 10px 15px;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .view-btn {
-            flex: 1;
-            padding: 8px;
-            text-align: center;
-            border: none;
-            background: white;
-            cursor: pointer;
-        }
-        .view-btn.active {
-            background: var(--primary-color);
-            color: white;
-        }
+        .file-icon { margin-right: 12px; font-size: 20px; }
+        .folder-icon { color: #4285F4; }
+        .video-icon { color: #EA4335; }
+        .image-icon { color: #34A853; }
+        .other-icon { color: #9E9E9E; }
+        .file-info { flex: 1; min-width: 0; }
+        .file-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-meta { font-size: 12px; color: #666; display: flex; justify-content: space-between; margin-top: 2px; }
+        .thumbnail { width: 60px; height: 40px; object-fit: cover; border-radius: 4px; margin-right: 12px; background: #eee; }
+        #video-player { position: fixed; bottom: 0; left: 0; right: 0; width: 100%; background: black; z-index: 200; display: none; }
+        .loading { text-align: center; padding: 20px; color: #666; }
+        .sort-options { display: flex; gap: 5px; margin-top: 5px; }
+        .sort-btn { padding: 4px 8px; background: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; }
+        .sort-btn.active { background: #4285F4; color: white; border-color: #4285F4; }
     </style>
 </head>
 <body>
-    <div class="loading-overlay" id="loading-overlay">
-        <div class="spinner"></div>
-    </div>
-
     <div class="header">
         <div class="search-box">
-            <input type="text" id="search-input" placeholder="搜索文件或文件夹..." autocomplete="off">
-            <button onclick="performSearch()">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-            </button>
+            <input type="text" id="search-input" placeholder="搜索文件...">
+            <button onclick="performSearch()">搜索</button>
         </div>
-        <div class="path-bar">
-            <span id="current-path">/</span>
-            <div class="sort-options" id="sort-options">
+        <div class="path-bar" id="path-bar">
+            <div id="current-path">/</div>
+            <div class="sort-options">
                 <button class="sort-btn" data-sort="name">名称</button>
+                <button class="sort-btn active" data-sort="type">类型</button>
                 <button class="sort-btn" data-sort="date">日期</button>
-                <button class="sort-btn" data-sort="size">大小</button>
             </div>
         </div>
     </div>
 
-    <div class="view-switcher" id="view-switcher">
-        <button class="view-btn active" data-view="list">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="8" y1="6" x2="21" y2="6"></line>
-                <line x1="8" y1="12" x2="21" y2="12"></line>
-                <line x1="8" y1="18" x2="21" y2="18"></line>
-                <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                <line x1="3" y1="18" x2="3.01" y2="18"></line>
-            </svg>
-        </button>
-        <button class="view-btn" data-view="grid">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-            </svg>
-        </button>
-    </div>
-
-    <div class="close-search" onclick="closeSearch()">← 返回文件浏览</div>
-    
-    <div class="file-browser">
-        <ul class="file-list" id="file-list"></ul>
-        <div class="empty-state" id="empty-state" style="display: none;">
-            <p>文件夹为空</p>
-        </div>
-    </div>
-    
-    <div class="search-results" id="search-results">
-        <h3 style="margin: 15px 15px 5px;">搜索结果</h3>
-        <div id="search-results-list"></div>
-        <div class="empty-state" id="search-empty-state" style="display: none;">
-            <p>没有找到匹配的结果</p>
-        </div>
-    </div>
+    <ul class="file-list" id="file-list"></ul>
+    <div class="loading" id="loading">加载中...</div>
 
     <video id="video-player" controls></video>
 
     <script>
-// 自动获取当前主机地址（兼容开发和生产环境）
-        const API_BASE_URL = (() => {
-            // 如果当前页面已经有端口（比如访问 http://ip:port），就使用当前端口
-            if (window.location.port) {
-                return `${window.location.protocol}//${window.location.hostname}:${window.location.port}`;
-            }
-            // 否则使用默认的5000端口
-            return `${window.location.protocol}//${window.location.hostname}:5000`;
-        })();
-
-        console.log('API基础URL:', API_BASE_URL);  // 调试用
+        const API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:${window.location.port || 5000}`;
         let currentPath = "";
-        let isSearching = false;
-        let currentSort = "name";
+        let currentSort = "type";
         let currentOrder = "asc";
-        let currentView = "list";
 
-        // 显示加载动画
         function showLoading() {
-            document.getElementById('loading-overlay').style.display = 'flex';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('file-list').innerHTML = '';
         }
 
-        // 隐藏加载动画
         function hideLoading() {
-            document.getElementById('loading-overlay').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
         }
 
-        // 加载文件列表
         function loadFiles(path = "") {
             showLoading();
-            isSearching = false;
-            document.querySelector('.search-results').style.display = 'none';
-            document.querySelector('.file-browser').style.display = 'block';
-            document.querySelector('.close-search').style.display = 'none';
-            document.getElementById('search-input').value = '';
-            
             currentPath = path;
-            document.getElementById("current-path").textContent = path || "/";
-            
+            document.getElementById('current-path').textContent = path || "/";
+
             fetch(`${API_BASE_URL}/files/${path}?sort=${currentSort}&order=${currentOrder}`)
                 .then(res => res.json())
                 .then(data => {
-                    const list = document.getElementById("file-list");
+                    const list = document.getElementById('file-list');
                     list.innerHTML = '';
-                    
-                    if (data.items.length === 0) {
-                        document.getElementById('empty-state').style.display = 'block';
-                    } else {
-                        document.getElementById('empty-state').style.display = 'none';
-                    }
 
-                    // 添加返回按钮（非根目录时）
-                    if (path) {
-                        const parentDir = path.split('/').slice(0, -1).join('/');
-                        const backItem = document.createElement("li");
-                        backItem.className = "file-item";
+                    // 添加返回按钮（如果有上级目录）
+                    if (data.parent !== null) {
+                        const backItem = document.createElement('li');
+                        backItem.className = 'file-item';
                         backItem.innerHTML = `
-                            <span class="file-icon dir-icon">←</span>
+                            <span class="file-icon folder-icon">←</span>
                             <div class="file-info">
                                 <div class="file-name">返回上级</div>
                             </div>
                         `;
-                        backItem.onclick = () => loadFiles(parentDir);
+                        backItem.onclick = () => loadFiles(data.parent);
                         list.appendChild(backItem);
                     }
 
                     // 添加文件和文件夹
                     data.items.forEach(item => {
-                        const li = document.createElement("li");
-                        li.className = "file-item";
-                        
-                        let thumbnail = '';
-                        if (item.has_thumbnail) {
-                            thumbnail = `<img src="${item.thumbnail}" class="thumbnail" loading="lazy" onerror="this.style.display='none'">`;
-                        } else if (item.is_video) {
-                            thumbnail = '<div class="thumbnail"></div>';
-                        }
-                        
+                        const li = document.createElement('li');
+                        li.className = 'file-item';
+
                         let icon = '📄';
+                        let iconClass = 'other-icon';
                         if (item.is_dir) {
                             icon = '📁';
+                            iconClass = 'folder-icon';
                         } else if (item.is_video) {
                             icon = '🎬';
+                            iconClass = 'video-icon';
+                        } else if (item.is_image) {
+                            icon = '🖼️';
+                            iconClass = 'image-icon';
                         }
-                        
+
+                        let thumbnail = '';
+                        if (item.has_thumbnail) {
+                            thumbnail = `<img src="${API_BASE_URL}${item.thumbnail}" class="thumbnail" onerror="this.style.display='none'">`;
+                        } else if (item.is_video || item.is_image) {
+                            thumbnail = '<div class="thumbnail"></div>';
+                        }
+
                         li.innerHTML = `
                             ${thumbnail}
-                            <span class="file-icon ${item.is_dir ? 'dir-icon' : (item.is_video ? 'video-icon' : '')}">
-                                ${icon}
-                            </span>
+                            <span class="file-icon ${iconClass}">${icon}</span>
                             <div class="file-info">
                                 <div class="file-name">${item.name}</div>
                                 <div class="file-meta">
@@ -381,34 +127,25 @@
                                 </div>
                             </div>
                         `;
-                        li.onclick = () => {
+
+                        li.onclick = (e) => {
+                            if (e.target.tagName === 'IMG' || e.target.tagName === 'SPAN') return;
+
                             if (item.is_dir) {
                                 loadFiles(item.path);
                             } else if (item.is_video) {
-                                // 播放视频
-                                const player = document.getElementById("video-player");
-                                player.style.display = "block";
-                                player.src = `/stream/${item.path}`;
+                                const player = document.getElementById('video-player');
+                                player.style.display = 'block';
+                                player.src = `${API_BASE_URL}/stream/${item.path}`;
                                 player.play();
-                                
-                                // 点击播放器外部关闭
-                                player.onclick = function(e) {
-                                    e.stopPropagation();
-                                };
-                                
-                                document.addEventListener('click', function closePlayer(e) {
-                                    if (e.target !== player && !player.contains(e.target)) {
-                                        player.pause();
-                                        player.style.display = "none";
-                                        document.removeEventListener('click', closePlayer);
-                                    }
-                                });
+                            } else if (item.is_image) {
+                                window.open(`${API_BASE_URL}/stream/${item.path}`, '_blank');
                             }
                         };
+
                         list.appendChild(li);
                     });
-                    
-                    updateSortButtons(data.sort, data.order);
+
                     hideLoading();
                 })
                 .catch(error => {
@@ -417,94 +154,6 @@
                 });
         }
 
-        // 更新排序按钮状态
-        function updateSortButtons(sort, order) {
-            currentSort = sort;
-            currentOrder = order;
-            
-            const buttons = document.querySelectorAll('.sort-btn');
-            buttons.forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.dataset.sort === sort) {
-                    btn.classList.add('active');
-                    btn.textContent = `${btn.dataset.sort} ${order === 'asc' ? '↑' : '↓'}`;
-                } else {
-                    btn.textContent = btn.dataset.sort;
-                }
-            });
-        }
-
-        // 执行搜索
-        function performSearch() {
-            const query = document.getElementById('search-input').value.trim();
-            if (!query) return;
-            
-            showLoading();
-            fetch(`${API_BASE_URL}/search?q=${encodeURIComponent(query)}`)
-                .then(res => res.json())
-                .then(data => {
-                    isSearching = true;
-                    document.querySelector('.file-browser').style.display = 'none';
-                    document.querySelector('.search-results').style.display = 'block';
-                    document.querySelector('.close-search').style.display = 'block';
-                    
-                    const resultsList = document.getElementById('search-results-list');
-                    resultsList.innerHTML = '';
-                    
-                    if (data.results.length === 0) {
-                        document.getElementById('search-empty-state').style.display = 'block';
-                    } else {
-                        document.getElementById('search-empty-state').style.display = 'none';
-                    }
-                    
-                    data.results.forEach(item => {
-                        const resultItem = document.createElement('div');
-                        resultItem.className = 'search-result-item';
-                        
-                        let icon = '📄';
-                        if (item.is_dir) {
-                            icon = '📁';
-                        } else if (item.is_video) {
-                            icon = '🎬';
-                        }
-                        
-                        resultItem.innerHTML = `
-                            <div style="display: flex; align-items: center;">
-                                <span style="margin-right: 8px; color: ${item.is_dir ? 'var(--primary-color)' : (item.is_video ? 'var(--secondary-color)' : '#666')}">
-                                    ${icon}
-                                </span>
-                                <div style="flex: 1; min-width: 0;">
-                                    <div style="font-weight: 500;">${item.name}</div>
-                                    <div class="search-result-path">${item.parent || '/'}</div>
-                                </div>
-                            </div>
-                        `;
-                        resultItem.onclick = () => {
-                            if (item.is_dir) {
-                                loadFiles(item.path);
-                            } else if (item.is_video) {
-                                const player = document.getElementById("video-player");
-                                player.style.display = "block";
-                                player.src = `/stream/${item.path}`;
-                                player.play();
-                            }
-                        };
-                        resultsList.appendChild(resultItem);
-                    });
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    hideLoading();
-                });
-        }
-
-        // 关闭搜索结果
-        function closeSearch() {
-            loadFiles(currentPath);
-        }
-
-        // 格式化文件大小
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 B';
             const k = 1024;
@@ -513,42 +162,32 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
-        // 初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            // 监听排序按钮点击
-            document.querySelectorAll('.sort-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const sort = this.dataset.sort;
-                    if (currentSort === sort) {
-                        currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
-                    } else {
-                        currentSort = sort;
-                        currentOrder = 'asc';
-                    }
-                    loadFiles(currentPath);
-                });
-            });
-            
-            // 监听视图切换按钮
-            document.querySelectorAll('.view-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    currentView = this.dataset.view;
-                    // TODO: 实现网格视图
-                });
-            });
-            
-            // 监听回车键搜索
-            document.getElementById('search-input').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    performSearch();
+        function performSearch() {
+            const query = document.getElementById('search-input').value.trim();
+            if (!query) return;
+            alert('搜索功能暂未实现');
+        }
+
+        // 初始化排序按钮
+        document.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const sort = this.dataset.sort;
+                if (currentSort === sort) {
+                    currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort = sort;
+                    currentOrder = sort === 'date' ? 'desc' : 'asc';
                 }
+
+                loadFiles(currentPath);
             });
-            
-            // 初始化加载根目录
-            loadFiles();
         });
+
+        // 初始化加载根目录
+        loadFiles();
     </script>
 </body>
 </html>
