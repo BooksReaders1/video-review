@@ -5,7 +5,7 @@ from flask import Flask, send_from_directory, jsonify, request
 import subprocess
 
 app = Flask(__name__)
-BASE_DIR = "D:/Videos"  # 替换为你的实际视频目录
+BASE_DIR = "D:/BaiduNetdiskDownload/shixi/Tools/beifen"  # 替换为你的实际视频目录
 THUMBNAIL_DIR = os.path.join(os.path.dirname(__file__), "thumbnails")
 os.makedirs(THUMBNAIL_DIR, exist_ok=True)
 
