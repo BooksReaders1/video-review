@@ -11,7 +11,7 @@ THUMBNAIL_DIR = os.path.join(os.path.dirname(__file__), "thumbnails")
 os.makedirs(THUMBNAIL_DIR, exist_ok=True)
 
 # 支持的文件类型
-VIDEO_EXTS = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv']
+VIDEO_EXTS = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.rmvb']
 IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
 
 
@@ -131,6 +131,32 @@ def get_thumbnail(filename):
 def stream_file(filename):
     return send_from_directory(BASE_DIR, filename)
 
+@app.route('/search')
+def search_files():
+    query = request.args.get('q', '').lower()
+    if not query:
+        return jsonify({"error": "No search query provided"}), 400
+
+    results = []
+    for root, dirs, files in os.walk(BASE_DIR):
+        for name in files + dirs:
+            if query in name.lower():
+                full_path = os.path.join(root, name)
+                rel_path = os.path.relpath(full_path, BASE_DIR)
+                is_dir = os.path.isdir(full_path)
+                ext = os.path.splitext(name)[1].lower() if not is_dir else ""
+
+                result = {
+                    "name": name,
+                    "path": rel_path.replace('\\', '/'),
+                    "is_dir": is_dir,
+                    "ext": ext,
+                    "parent": os.path.dirname(rel_path).replace('\\', '/'),
+                    "is_video": ext in VIDEO_EXTS
+                }
+                results.append(result)
+
+    return jsonify({"results": results})
 
 @app.route('/player')
 def player():
