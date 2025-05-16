@@ -1,8 +1,7 @@
 import os
 import hashlib
 from datetime import datetime
-from flask import Flask, send_from_directory, jsonify, request, render_template, redirect, url_for
-import subprocess
+from flask import Flask, send_from_directory, jsonify, request, render_template
 import ffmpeg
 
 app = Flask(__name__)
@@ -51,9 +50,15 @@ def generate_thumbnail(file_path, thumbnail_path):
 @app.route('/files/<path:subpath>')
 def list_files(subpath):
     try:
-        target_dir = os.path.join(BASE_DIR, subpath)
+        # 规范化路径并添加 UNC 前缀以支持长路径（Windows 特有）
+        target_dir = os.path.normpath(os.path.join(BASE_DIR, subpath))
 
-        # 获取排序参数
+        if os.name == 'nt':
+            target_dir = r'\\?\{}'.format(target_dir)
+
+        if not os.path.exists(target_dir):
+            return jsonify({"error": f"路径不存在: {subpath}"}), 404
+
         sort_by = request.args.get('sort', 'type')
         order = request.args.get('order', 'desc' if sort_by == 'date' else 'asc')
 
@@ -63,15 +68,22 @@ def list_files(subpath):
             is_dir = os.path.isdir(full_path)
             ext = os.path.splitext(name)[1].lower()
 
-            # 确定文件类型优先级
-            if is_dir:
-                file_type = 0
-            elif ext in VIDEO_EXTS:
-                file_type = 1
-            elif ext in IMAGE_EXTS:
-                file_type = 2
-            else:
-                file_type = 3
+            # 初始化缩略图相关字段
+            has_thumbnail = False
+            thumbnail = ""
+
+            if not is_dir and (ext in VIDEO_EXTS or ext in IMAGE_EXTS):
+                thumbnail_name = f"{hashlib.md5(full_path.encode()).hexdigest()}.jpg"
+                thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_name)
+
+                if not os.path.exists(thumbnail_path):
+                    if generate_thumbnail(full_path, thumbnail_path):
+                        has_thumbnail = True
+                else:
+                    has_thumbnail = True
+
+                if has_thumbnail:
+                    thumbnail = f"/thumbnail/{thumbnail_name}"
 
             item = {
                 "name": name,
@@ -80,24 +92,13 @@ def list_files(subpath):
                 "ext": ext,
                 "date": os.path.getmtime(full_path),
                 "size": os.path.getsize(full_path) if not is_dir else 0,
-                "type": file_type,
+                "type": 0 if is_dir else (1 if ext in VIDEO_EXTS else (2 if ext in IMAGE_EXTS else 3)),
                 "is_video": ext in VIDEO_EXTS,
                 "is_image": ext in IMAGE_EXTS,
-                "has_thumbnail": False
+                "has_thumbnail": has_thumbnail,
+                "thumbnail": thumbnail,
+                "timestamp": os.path.getctime(full_path)
             }
-
-            # 生成缩略图
-            if item['is_video'] or item['is_image']:
-                thumbnail_name = f"{hashlib.md5(full_path.encode()).hexdigest()}.jpg"
-                thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_name)
-
-                if not os.path.exists(thumbnail_path):
-                    if generate_thumbnail(full_path, thumbnail_path):
-                        item['has_thumbnail'] = True
-                else:
-                    item['has_thumbnail'] = True
-
-                item['thumbnail'] = f"/thumbnail/{thumbnail_name}" if item['has_thumbnail'] else ""
 
             items.append(item)
 
@@ -133,30 +134,72 @@ def stream_file(filename):
 
 @app.route('/search')
 def search_files():
-    query = request.args.get('q', '').lower()
-    if not query:
-        return jsonify({"error": "No search query provided"}), 400
+    try:
+        query = request.args.get('q', '').lower()
+        if not query:
+            return jsonify({"error": "No search query provided"}), 400
 
-    results = []
-    for root, dirs, files in os.walk(BASE_DIR):
-        for name in files + dirs:
-            if query in name.lower():
-                full_path = os.path.join(root, name)
-                rel_path = os.path.relpath(full_path, BASE_DIR)
-                is_dir = os.path.isdir(full_path)
-                ext = os.path.splitext(name)[1].lower() if not is_dir else ""
+        results = []
+        for root, dirs, files in os.walk(BASE_DIR):
+            for name in files + dirs:
+                if query in name.lower():
+                    full_path = os.path.join(root, name)
+                    rel_path = os.path.relpath(full_path, BASE_DIR)
+                    is_dir = os.path.isdir(full_path)
+                    ext = os.path.splitext(name)[1].lower() if not is_dir else ""
+                    ctime = os.path.getctime(full_path)
 
-                result = {
-                    "name": name,
-                    "path": rel_path.replace('\\', '/'),
-                    "is_dir": is_dir,
-                    "ext": ext,
-                    "parent": os.path.dirname(rel_path).replace('\\', '/'),
-                    "is_video": ext in VIDEO_EXTS
-                }
-                results.append(result)
+                    # 初始化缩略图相关字段
+                    has_thumbnail = False
+                    thumbnail = ""
 
-    return jsonify({"results": results})
+                    if not is_dir and (ext in VIDEO_EXTS or ext in IMAGE_EXTS):
+                        thumbnail_name = f"{hashlib.md5(full_path.encode()).hexdigest()}.jpg"
+                        thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_name)
+
+                        if not os.path.exists(thumbnail_path):
+                            if generate_thumbnail(full_path, thumbnail_path):
+                                has_thumbnail = True
+                        else:
+                            has_thumbnail = True
+
+                        if has_thumbnail:
+                            thumbnail = f"/thumbnail/{thumbnail_name}"
+
+                    # 确定文件类型优先级
+                    if is_dir:
+                        file_type = 0
+                    elif ext in VIDEO_EXTS:
+                        file_type = 1
+                    elif ext in IMAGE_EXTS:
+                        file_type = 2
+                    else:
+                        file_type = 3
+
+                    result = {
+                        "name": name,
+                        "path": rel_path.replace('\\', '/'),
+                        "is_dir": is_dir,
+                        "ext": ext,
+                        "parent": os.path.dirname(rel_path).replace('\\', '/'),
+                        "is_video": ext in VIDEO_EXTS,
+                        "is_image": ext in IMAGE_EXTS,
+                        "type": file_type,
+                        "date": datetime.fromtimestamp(ctime).strftime('%Y-%m-%d %H:%M'),
+                        "timestamp": ctime,
+                        "has_thumbnail": has_thumbnail,
+                        "thumbnail": thumbnail
+                    }
+                    results.append(result)
+
+        # 排序逻辑：先按类型，再按创建时间倒序
+        results.sort(key=lambda x: (x['type'], -x['timestamp']))
+
+        return jsonify({"results": results})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/player')
 def player():

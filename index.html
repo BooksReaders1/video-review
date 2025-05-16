@@ -113,8 +113,8 @@
             showLoading();
             currentPath = path;
             historyStack.push(path);
-
-            fetch(`${API_BASE_URL}/files/${path}?sort=${currentSort}&order=${currentOrder}`)
+            let encodedPath = encodeURIComponent(path);
+            fetch(`${API_BASE_URL}/files/${encodedPath}?sort=${currentSort}&order=${currentOrder}`)
                 .then(res => res.json())
                 .then(data => {
                     const list = document.getElementById('file-list');
@@ -161,17 +161,17 @@
                             thumbnail = '<div class="thumbnail"></div>';
                         }
 
-                        li.innerHTML = `
-                            ${thumbnail}
-                            <span class="file-icon ${iconClass}">${icon}</span>
-                            <div class="file-info">
-                                <div class="file-name">${item.name}</div>
-                                <div class="file-meta">
-                                    <span>${item.date}</span>
-                                    <span>${item.is_dir ? '' : formatFileSize(item.size)}</span>
-                                </div>
-                            </div>
-                        `;
+                    li.innerHTML = `
+    ${thumbnail}  
+    <span class="file-icon ${iconClass}">${icon}</span>
+    <div class="file-info">
+        <div class="file-name">${item.name}</div>
+        <div class="file-meta">
+            <span>${item.date}</span>
+            <span>${item.is_dir ? '' : formatFileSize(item.size)}</span>
+        </div>
+    </div>
+    `;
 
                         li.onclick = () => {
                             if (item.is_dir) {
@@ -200,7 +200,9 @@
             const title = document.getElementById('player-title');
 
             title.textContent = name;
-            player.src = `${API_BASE_URL}/stream/${path}`;
+            let encodedPath = encodeURIComponent(path);
+
+            player.src = `${API_BASE_URL}/stream/${encodedPath}`;
             container.style.display = 'block';
             player.play().catch(e => console.log('自动播放被阻止:', e));
         }
@@ -233,7 +235,7 @@
         }
 
 // 执行搜索
-        function performSearch() {
+function performSearch() {
     const query = document.getElementById('search-input').value.trim();
     if (!query) return;
 
@@ -245,7 +247,6 @@
             const searchResults = document.getElementById('search-results');
             const fileList = document.getElementById('file-list');
 
-            // 显示搜索结果，隐藏普通文件列表
             fileList.style.display = 'none';
             searchResults.style.display = 'block';
             resultsList.innerHTML = '';
@@ -272,11 +273,20 @@
                         iconClass = 'image-icon';
                     }
 
+                    let thumbnail = '';
+                    if (item.has_thumbnail) {
+                        thumbnail = `<img src="${API_BASE_URL}${item.thumbnail}" class="thumbnail" onerror="this.style.display='none'">`;
+                    } else if (item.is_video || item.is_image) {
+                        thumbnail = '<div class="thumbnail"></div>';
+                    }
+
                     li.innerHTML = `
+                        ${thumbnail}
                         <span class="file-icon ${iconClass}">${icon}</span>
                         <div class="file-info">
                             <div class="file-name">${item.name}</div>
                             <div class="file-meta">
+                                <span>${item.date}</span>
                                 <span>${item.parent || '/'}</span>
                             </div>
                         </div>
