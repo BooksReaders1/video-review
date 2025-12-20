@@ -511,6 +511,7 @@
                 align-self: flex-end;
             }
         }
+
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -583,6 +584,116 @@
         <div class="player-title" id="player-title"></div>
     </div>
     <video id="video-player" controls></video>
+</div>
+
+<!-- 文本预览模态框 -->
+<div id="text-preview-modal" style="
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 2000;
+    display: none;
+    padding: 20px;
+    overflow: auto;
+">
+    <div style="
+        background: white;
+        border-radius: 10px;
+        height: 90vh;
+        max-width: 900px;
+        margin: auto;
+        display: flex;
+        flex-direction: column;
+    ">
+        <div style="
+            padding: 12px 16px;
+            background: #f1f3f4;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            display: flex;
+            align-items: center;
+        ">
+            <button id="close-text-preview" style="
+                background: #5f6368; color: white; border: none;
+                border-radius: 4px; padding: 6px 12px; margin-right: 10px;
+                cursor: pointer;
+            ">
+                <i class="fas fa-times"></i> 关闭
+            </button>
+            <div id="text-preview-title" style="
+                font-weight: 600; font-size: 14px;
+                white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            "></div>
+        </div>
+        <pre id="text-preview-content" style="
+            padding: 16px;
+            flex: 1;
+            overflow: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: #fdfdfd;
+            margin: 0;
+        "></pre>
+    </div>
+</div>
+
+<!-- 图片预览模态框 -->
+<div id="image-preview-modal" style="
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9);
+    z-index: 2000;
+    display: none;
+    padding: 20px;
+    overflow: auto;
+    text-align: center;
+">
+    <div style="
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 2001;
+    ">
+        <button id="close-image-preview" style="
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        ">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <div style="
+        color: white;
+        margin-bottom: 15px;
+        font-size: 14px;
+        font-weight: 500;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    " id="image-preview-title"></div>
+
+    <img id="image-preview-content"
+        style="
+            max-width: 95vw;
+            max-height: 85vh;
+            object-fit: contain;
+            border: 3px solid white;
+            border-radius: 6px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+        "
+        src=""
+        alt="预览图"
+    />
 </div>
 
 <script>
@@ -719,11 +830,24 @@
                         } else if (item.is_video) {
                             playVideo(item.path, item.name);
                         } else if (item.is_image) {
-                            window.open(`${API_BASE_URL}/stream/${item.path}`, '_blank');
-                        } else {
-                            // 其他文件类型处理
-                            window.open(`${API_BASE_URL}/stream/${item.path}`, '_blank');
-                        }
+    previewImage(item.path, item.name);
+}else {
+    // 判断是否为文本文件（可扩展）
+    const textExtensions = [
+        '.txt', '.log', '.md', '.json', '.xml', '.yml', '.yaml',
+        '.ini', '.cfg', '.conf', '.csv', '.tsv', '.sql', '.sh',
+        '.bat', '.py', '.js', '.html', '.css', '.htm', '.env'
+    ];
+    const ext = item.name.toLowerCase().split('.').pop();
+    const isTextFile = textExtensions.includes('.' + ext);
+
+    if (isTextFile) {
+        previewTextFile(item.path, item.name);
+    } else {
+        // 非文本文件：下载或打开
+        window.open(`${API_BASE_URL}/stream/${item.path}`, '_blank');
+    }
+}
                     };
 
                     list.appendChild(li);
@@ -914,6 +1038,15 @@
             if (e.target.id === 'close-player') {
                 closeVideoPlayer();
             }
+                    // 关闭文本预览
+    if (e.target.id === 'close-text-preview' || e.target.closest('#close-text-preview')) {
+        document.getElementById('text-preview-modal').style.display = 'none';
+    }
+
+    // 👇 新增：关闭图片预览
+    if (e.target.id === 'close-image-preview' || e.target.closest('#close-image-preview') || e.target.id === 'image-preview-modal') {
+        document.getElementById('image-preview-modal').style.display = 'none';
+    }
         });
 
         // 监听回车键搜索
@@ -925,7 +1058,71 @@
 
         // 初始化加载根目录
         loadFiles();
+
+
     });
+
+function previewTextFile(path, name) {
+    const modal = document.getElementById('text-preview-modal');
+    const title = document.getElementById('text-preview-title');
+    const content = document.getElementById('text-preview-content');
+
+    title.textContent = name;
+    content.textContent = '加载中...';
+
+    modal.style.display = 'block';
+
+    let encodedPath = encodeURIComponent(path);
+    fetch(`${API_BASE_URL}/stream/${encodedPath}`)
+        .then(response => {
+            if (!response.ok) throw new Error('文件加载失败');
+            return response.text();
+        })
+        .then(text => {
+            content.textContent = text;
+        })
+        .catch(error => {
+            content.textContent = `❌ 无法加载文件：${error.message}`;
+            content.style.color = 'red';
+        });
+}
+
+// 关闭文本预览
+document.getElementById('close-text-preview').addEventListener('click', () => {
+    document.getElementById('text-preview-modal').style.display = 'none';
+});
+
+// 点击遮罩关闭（可选）
+document.getElementById('text-preview-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'text-preview-modal') {
+        e.target.style.display = 'none';
+    }
+});
+
+function previewImage(path, name) {
+    const modal = document.getElementById('image-preview-modal');
+    const title = document.getElementById('image-preview-title');
+    const img = document.getElementById('image-preview-content');
+
+    title.textContent = name;
+    img.src = `${API_BASE_URL}/stream/${encodeURIComponent(path)}`;
+    img.alt = name;
+
+    modal.style.display = 'block';
+
+    // 可选：加载失败处理
+    img.onerror = () => {
+        img.src = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#333"/>
+                <text x="100" y="100" fill="white" font-size="16" text-anchor="middle" dominant-baseline="middle">
+                    图片加载失败
+                </text>
+            </svg>
+        `);
+    };
+}
 </script>
+
 </body>
 </html>

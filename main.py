@@ -1,11 +1,11 @@
 import os
 import hashlib
 from datetime import datetime
-from flask import Flask, send_from_directory, jsonify, request, render_template
+from flask import Flask, send_from_directory, jsonify, request, render_template, Response
 import ffmpeg
 
 app = Flask(__name__)
-BASE_DIR = "D:/BaiduNetdiskDownload/shixi/Tools/beifen"   # 替换为你的实际视频目录
+BASE_DIR = "D:/BaiduNetdiskDownload/shixi/Tools/beifen"  # 替换为你的实际视频目录
 THUMBNAIL_DIR = os.path.join(os.path.dirname(__file__), "thumbnails")
 os.makedirs(THUMBNAIL_DIR, exist_ok=True)
 
@@ -13,7 +13,15 @@ os.makedirs(THUMBNAIL_DIR, exist_ok=True)
 VIDEO_EXTS = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.rmvb']
 IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
 
+import chardet
 
+MAX_TEXT_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+TEXT_EXTS = {
+    '.txt', '.log', '.md', '.json', '.xml', '.yml', '.yaml',
+    '.ini', '.cfg', '.conf', '.csv', '.tsv', '.sql', '.sh',
+    '.bat', '.py', '.js', '.html', '.htm', '.css', '.env',
+    '.rst', '.tex', '.go', '.rs', '.java', '.c', '.cpp', '.h'
+}
 def generate_thumbnail(file_path, thumbnail_path):
     try:
         ext = os.path.splitext(file_path)[1].lower()
@@ -128,9 +136,54 @@ def get_thumbnail(filename):
     return send_from_directory(THUMBNAIL_DIR, filename)
 
 
+import mimetypes
+
+
 @app.route('/stream/<path:filename>')
 def stream_file(filename):
-    return send_from_directory(BASE_DIR, filename)
+    safe_path = os.path.join(BASE_DIR, filename)
+    if not os.path.abspath(safe_path).startswith(os.path.abspath(BASE_DIR)):
+        return "Forbidden", 403
+    if not os.path.exists(safe_path):
+        return "File not found", 404
+
+    ext = os.path.splitext(filename)[1].lower()
+
+    # 非文本文件：直接发送（二进制）
+    if ext not in TEXT_EXTS:
+        return send_from_directory(BASE_DIR, filename)
+
+    # 文本文件：读取并转为 UTF-8
+    file_size = os.path.getsize(safe_path)
+    if file_size > MAX_TEXT_FILE_SIZE:
+        return "File too large to preview (max 10MB)", 400
+
+    try:
+        with open(safe_path, 'rb') as f:
+            raw_data = f.read()
+
+        # 检测编码
+        detected = chardet.detect(raw_data)
+        encoding = detected['encoding']
+        confidence = detected['confidence']
+
+        # 如果检测失败，默认用 GBK（中文 Windows 常见）
+        if not encoding or confidence < 0.6:
+            encoding = 'gbk'
+
+        # 尝试解码
+        try:
+            text = raw_data.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            # 如果失败，尝试 fallback
+            text = raw_data.decode('utf-8', errors='replace')
+
+        # 返回 UTF-8 文本
+        return Response(text, mimetype='text/plain; charset=utf-8')
+
+    except Exception as e:
+        return f"Failed to read file: {str(e)}", 500
+
 
 @app.route('/search')
 def search_files():
