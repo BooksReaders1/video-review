@@ -703,6 +703,30 @@
     let currentOrder = "asc";
     let historyStack = [];
     let currentView = "list"; // 'list' 或 'grid'
+    let videoPositionMap = {}; // 存储视频播放位置
+
+    // 从 localStorage 恢复视频播放位置
+    function loadVideoPositions() {
+        try {
+            const saved = localStorage.getItem('videoPositions');
+            if (saved) {
+                videoPositionMap = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error('加载视频位置失败:', e);
+            videoPositionMap = {};
+        }
+    }
+
+    // 保存视频播放位置到 localStorage
+    function saveVideoPosition(path, position) {
+        try {
+            videoPositionMap[path] = position;
+            localStorage.setItem('videoPositions', JSON.stringify(videoPositionMap));
+        } catch (e) {
+            console.error('保存视频位置失败:', e);
+        }
+    }
 
     // 切换视图
     function switchView(view) {
@@ -730,6 +754,25 @@
 
     function hideLoading() {
         document.getElementById('loading').style.display = 'none';
+    }
+
+    // 异步生成缩略图
+    function generateThumbnailAsync(filePath) {
+        fetch(`${API_BASE_URL}/generate-thumbnail`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ path: filePath })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.thumbnail) {
+                // 刷新当前列表以显示新缩略图
+                loadFiles(currentPath);
+            }
+        })
+        .catch(err => console.error('生成缩略图失败:', err));
     }
 
     function loadFiles(path = "") {
@@ -830,24 +873,29 @@
                         } else if (item.is_video) {
                             playVideo(item.path, item.name);
                         } else if (item.is_image) {
-    previewImage(item.path, item.name);
-}else {
-    // 判断是否为文本文件（可扩展）
-    const textExtensions = [
-        '.txt', '.log', '.md', '.json', '.xml', '.yml', '.yaml',
-        '.ini', '.cfg', '.conf', '.csv', '.tsv', '.sql', '.sh',
-        '.bat', '.py', '.js', '.html', '.css', '.htm', '.env'
-    ];
-    const ext = item.name.toLowerCase().split('.').pop();
-    const isTextFile = textExtensions.includes('.' + ext);
+                            previewImage(item.path, item.name);
+                        } else {
+                            // 判断是否为文本文件（可扩展）
+                            const textExtensions = [
+                                '.txt', '.log', '.md', '.json', '.xml', '.yml', '.yaml',
+                                '.ini', '.cfg', '.conf', '.csv', '.tsv', '.sql', '.sh',
+                                '.bat', '.py', '.js', '.html', '.css', '.htm', '.env'
+                            ];
+                            const ext = item.name.toLowerCase().split('.').pop();
+                            const isTextFile = textExtensions.includes('.' + ext);
 
-    if (isTextFile) {
-        previewTextFile(item.path, item.name);
-    } else {
-        // 非文本文件：下载或打开
-        window.open(`${API_BASE_URL}/stream/${item.path}`, '_blank');
-    }
-}
+                            if (isTextFile) {
+                                previewTextFile(item.path, item.name);
+                            } else {
+                                // 非文本文件：下载或打开
+                                window.open(`${API_BASE_URL}/stream/${item.path}`, '_blank');
+                            }
+                        }
+                        
+                        // 对于没有缩略图的视频/图片，触发异步生成
+                        if (!item.has_thumbnail && (item.is_video || item.is_image)) {
+                            generateThumbnailAsync(item.path);
+                        }
                     };
 
                     list.appendChild(li);
@@ -878,6 +926,16 @@
 
         player.src = `${API_BASE_URL}/stream/${encodedPath}`;
         container.style.display = 'block';
+        
+        // 恢复上次播放位置
+        const savedPosition = videoPositionMap[path];
+        if (savedPosition) {
+            player.addEventListener('loadedmetadata', function onLoaded() {
+                player.currentTime = Math.min(savedPosition, player.duration - 1);
+                player.removeEventListener('loadedmetadata', onLoaded);
+            });
+        }
+        
         player.play().catch(e => console.log('自动播放被阻止:', e));
     }
 
@@ -885,12 +943,26 @@
         const container = document.getElementById('video-container');
         const player = document.getElementById('video-player');
 
+        // 保存当前播放位置
+        const currentSrc = player.src;
+        const path = decodeURIComponent(currentSrc.replace(`${API_BASE_URL}/stream/`, ''));
+        if (player.currentTime > 0) {
+            saveVideoPosition(path, player.currentTime);
+        }
+
         player.pause();
         player.src = '';
         container.style.display = 'none';
     }
 
     function goBack() {
+        // 如果正在显示搜索结果，先关闭搜索结果
+        const searchResults = document.getElementById('search-results');
+        if (searchResults.style.display === 'block') {
+            closeSearch();
+            return;
+        }
+        
         if (historyStack.length > 1) {
             historyStack.pop(); // 移除当前路径
             const prevPath = historyStack.pop(); // 获取上一级路径
@@ -1010,15 +1082,20 @@
             });
     }
 
-    // 关闭搜索结果
+    // 关闭搜索结果，返回文件浏览（修复搜索后返回无效问题）
     function closeSearch() {
         document.getElementById('search-results').style.display = 'none';
         document.getElementById('file-list').style.display = 'block';
         document.getElementById('search-input').value = '';
+        // 重置历史栈，确保返回按钮正常工作
+        historyStack = [currentPath];
     }
 
     // 初始化事件监听
     document.addEventListener('DOMContentLoaded', function() {
+        // 加载视频播放位置
+        loadVideoPositions();
+        
         document.addEventListener('click', function(e) {
             if (e.target.classList.contains('sort-btn')) {
                 document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
