@@ -76,7 +76,7 @@ def list_files(subpath):
             is_dir = os.path.isdir(full_path)
             ext = os.path.splitext(name)[1].lower()
 
-            # 初始化缩略图相关字段
+            # 初始化缩略图相关字段（异步模式下只检查是否已存在）
             has_thumbnail = False
             thumbnail = ""
 
@@ -84,13 +84,9 @@ def list_files(subpath):
                 thumbnail_name = f"{hashlib.md5(full_path.encode()).hexdigest()}.jpg"
                 thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_name)
 
-                if not os.path.exists(thumbnail_path):
-                    if generate_thumbnail(full_path, thumbnail_path):
-                        has_thumbnail = True
-                else:
+                # 只检查是否已存在，不再生成（异步生成由前端触发）
+                if os.path.exists(thumbnail_path):
                     has_thumbnail = True
-
-                if has_thumbnail:
                     thumbnail = f"/thumbnail/{thumbnail_name}"
 
             item = {
@@ -202,7 +198,7 @@ def search_files():
                     ext = os.path.splitext(name)[1].lower() if not is_dir else ""
                     ctime = os.path.getctime(full_path)
 
-                    # 初始化缩略图相关字段
+                    # 初始化缩略图相关字段（异步模式下只检查是否已存在）
                     has_thumbnail = False
                     thumbnail = ""
 
@@ -210,13 +206,9 @@ def search_files():
                         thumbnail_name = f"{hashlib.md5(full_path.encode()).hexdigest()}.jpg"
                         thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_name)
 
-                        if not os.path.exists(thumbnail_path):
-                            if generate_thumbnail(full_path, thumbnail_path):
-                                has_thumbnail = True
-                        else:
+                        # 只检查是否已存在，不再生成（异步生成由前端触发）
+                        if os.path.exists(thumbnail_path):
                             has_thumbnail = True
-
-                        if has_thumbnail:
                             thumbnail = f"/thumbnail/{thumbnail_name}"
 
                     # 确定文件类型优先级
@@ -263,6 +255,42 @@ def player():
                            video_url=f"/stream/{video_path}",
                            video_name=video_name,
                            back_url=back_path)
+
+
+# 异步生成缩略图接口
+@app.route('/generate-thumbnail', methods=['POST'])
+def api_generate_thumbnail():
+    """前端触发的异步缩略图生成接口"""
+    try:
+        data = request.get_json()
+        file_path = data.get('path')
+        
+        if not file_path:
+            return jsonify({"error": "No file path provided"}), 400
+        
+        full_path = os.path.join(BASE_DIR, file_path)
+        if not os.path.exists(full_path):
+            return jsonify({"error": "File not found"}), 404
+        
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext not in VIDEO_EXTS and ext not in IMAGE_EXTS:
+            return jsonify({"error": "Unsupported file type"}), 400
+        
+        thumbnail_name = f"{hashlib.md5(full_path.encode()).hexdigest()}.jpg"
+        thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_name)
+        
+        # 如果已存在，直接返回成功
+        if os.path.exists(thumbnail_path):
+            return jsonify({"success": True, "thumbnail": f"/thumbnail/{thumbnail_name}"})
+        
+        # 生成缩略图
+        if generate_thumbnail(full_path, thumbnail_path):
+            return jsonify({"success": True, "thumbnail": f"/thumbnail/{thumbnail_name}"})
+        else:
+            return jsonify({"success": False, "error": "Failed to generate thumbnail"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/')
