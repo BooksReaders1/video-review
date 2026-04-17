@@ -3,30 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <title>视频播放器</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <style>
+        * { box-sizing: border-box; }
         body { margin: 0; padding: 0; font-family: Arial, sans-serif; background: #000; }
-        .player-header { position: fixed; top: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: white; padding: 10px; z-index: 100; display: flex; align-items: center; }
-        .back-btn { background: #444; color: white; border: none; padding: 8px 15px; border-radius: 4px; margin-right: 15px; cursor: pointer; }
-        .video-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        #video-player { width: 100%; height: 100vh; object-fit: contain; background: black; }
+        .player-header { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            background: rgba(0,0,0,0.85); 
+            color: white; 
+            padding: 12px 15px; 
+            z-index: 100; 
+            display: flex; 
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header-left { display: flex; align-items: center; flex: 1; min-width: 0; }
+        .back-btn { 
+            background: #444; 
+            color: white; 
+            border: none; 
+            padding: 8px 15px; 
+            border-radius: 4px; 
+            margin-right: 15px; 
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .back-btn:hover { background: #555; }
+        .video-title { 
+            flex: 1; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
+            font-size: 16px;
+            max-width: calc(100% - 100px);
+        }
+        .fullscreen-btn {
+            background: transparent;
+            color: white;
+            border: 1px solid rgba(255,255,255,0.5);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
+            transition: all 0.2s;
+        }
+        .fullscreen-btn:hover { background: rgba(255,255,255,0.1); border-color: white; }
+        .video-container { 
+            width: 100%; 
+            height: 100vh; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: black;
+            padding-top: 50px;
+        }
+        #video-player { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: contain; 
+            background: black;
+        }
+        /* 全屏模式下的样式 */
+        .fullscreen-mode .player-header {
+            background: rgba(0,0,0,0.9);
+        }
+        .fullscreen-mode .video-container {
+            padding-top: 60px;
+        }
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .player-header {
+                padding: 10px;
+            }
+            .back-btn {
+                padding: 6px 10px;
+                font-size: 13px;
+                margin-right: 10px;
+            }
+            .video-title {
+                font-size: 14px;
+            }
+            .fullscreen-btn {
+                padding: 5px 10px;
+                font-size: 13px;
+            }
+            .video-container {
+                padding-top: 45px;
+            }
+        }
+        /* 横屏模式适配 */
+        @media (orientation: landscape) and (max-height: 500px) {
+            .player-header {
+                padding: 8px 12px;
+            }
+            .video-title {
+                font-size: 13px;
+            }
+            .back-btn, .fullscreen-btn {
+                padding: 5px 8px;
+                font-size: 12px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="player-header">
-        <button class="back-btn" onclick="window.location.href='{{ back_url }}'">← 返回</button>
-        <div class="video-title">{{ video_name }}</div>
+        <div class="header-left">
+            <button class="back-btn" onclick="window.location.href='{{ back_url }}'">← 返回</button>
+            <div class="video-title" title="{{ video_name }}">{{ video_name }}</div>
+        </div>
+        <button class="fullscreen-btn" id="fullscreen-btn" onclick="toggleFullscreen()">⛶ 全屏</button>
     </div>
-    <video id="video-player" controls autoplay>
-        <source src="{{ video_url }}" type="video/mp4">
-        您的浏览器不支持HTML5视频
-    </video>
+    <div class="video-container">
+        <video id="video-player" controls autoplay playsinline webkit-playsinline>
+            <source src="{{ video_url }}" type="video/mp4">
+            您的浏览器不支持 HTML5 视频
+        </video>
+    </div>
 
     <script>
-        // 自动全屏播放
-        document.getElementById('video-player').addEventListener('loadedmetadata', function() {
+        const videoPlayer = document.getElementById('video-player');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        
+        // 自动播放
+        videoPlayer.addEventListener('loadedmetadata', function() {
             this.play().catch(e => console.log('自动播放被阻止:', e));
         });
+        
+        // 全屏切换函数
+        function toggleFullscreen() {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && 
+                !document.mozFullScreenElement && !document.msFullscreenElement) {
+                enterFullscreen();
+            } else {
+                exitFullscreen();
+            }
+        }
+        
+        function enterFullscreen() {
+            const container = document.querySelector('.video-container');
+            if (container.requestFullscreen) {
+                container.requestFullscreen();
+            } else if (container.webkitRequestFullscreen) {
+                container.webkitRequestFullscreen();
+            } else if (container.mozRequestFullScreen) {
+                container.mozRequestFullScreen();
+            } else if (container.msRequestFullscreen) {
+                container.msRequestFullscreen();
+            }
+            document.body.classList.add('fullscreen-mode');
+            fullscreenBtn.textContent = '❐ 退出';
+        }
+        
+        function exitFullscreen() {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+            document.body.classList.remove('fullscreen-mode');
+            fullscreenBtn.textContent = '⛶ 全屏';
+        }
+        
+        // 监听全屏状态变化
+        document.addEventListener('fullscreenchange', updateFullscreenButton);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+        document.addEventListener('mozfullscreenchange', updateFullscreenButton);
+        document.addEventListener('MSFullscreenChange', updateFullscreenButton);
+        
+        function updateFullscreenButton() {
+            if (document.fullscreenElement || document.webkitFullscreenElement || 
+                document.mozFullScreenElement || document.msFullscreenElement) {
+                document.body.classList.add('fullscreen-mode');
+                fullscreenBtn.textContent = '❐ 退出';
+            } else {
+                document.body.classList.remove('fullscreen-mode');
+                fullscreenBtn.textContent = '⛶ 全屏';
+            }
+        }
+        
+        // 双击视频也可以切换全屏
+        videoPlayer.addEventListener('dblclick', toggleFullscreen);
     </script>
 </body>
 </html>
