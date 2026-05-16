@@ -29,6 +29,214 @@
             background-color: var(--background);
             color: var(--text-primary);
             line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* 侧边栏样式 */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            display: block;
+            opacity: 1;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background: #000000;
+            z-index: 999;
+            transition: transform 0.3s ease;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .sidebar.active {
+            transform: translateX(280px);
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+
+        .sidebar-title {
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .sidebar-close {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-close:hover {
+            color: #ccc;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #222;
+        }
+
+        .sidebar-item-label {
+            color: white;
+            font-size: 0.95rem;
+        }
+
+        /* 开关样式 */
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+            appearance: none;
+            background: #555;
+            border-radius: 13px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch::before {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle-switch:checked {
+            background: #4285F4;
+        }
+
+        .toggle-switch:checked::before {
+            transform: translateX(24px);
+        }
+
+        /* 汉堡菜单按钮 */
+        .hamburger-btn {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1000;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            transition: background 0.3s;
+        }
+
+        .hamburger-btn:hover {
+            background: #3367d6;
+        }
+
+        .hamburger-btn span {
+            display: block;
+            width: 22px;
+            height: 2.5px;
+            background: white;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+
+        .hamburger-btn.active span:nth-child(1) {
+            transform: rotate(45deg) translate(6px, 6px);
+        }
+
+        .hamburger-btn.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger-btn.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(6px, -6px);
+        }
+
+        /* 删除功能相关样式 */
+        .file-item-wrapper {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .delete-action {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 80px;
+            background: #ea4335;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            transform: translateX(100%);
+        }
+
+        .file-item-wrapper.swiping .delete-action {
+            transform: translateX(0);
+        }
+
+        .file-item-wrapper.list-view .delete-action {
+            width: 80px;
+        }
+
+        .file-item-content {
+            transition: transform 0.3s ease;
+            background: inherit;
+        }
+
+        .file-item-wrapper.swiping .file-item-content {
+            transform: translateX(-80px);
+        }
+
+        .delete-disabled-msg {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 14px;
         }
 
         .header {
@@ -516,6 +724,30 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
+<!-- 汉堡菜单按钮 -->
+<button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()">
+    <span></span>
+    <span></span>
+    <span></span>
+</button>
+
+<!-- 侧边栏遮罩层 -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- 侧边栏 -->
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <span class="sidebar-title"><i class="fas fa-bars"></i> 菜单</span>
+        <button class="sidebar-close" onclick="closeSidebar()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="sidebar-item">
+        <span class="sidebar-item-label">删除功能</span>
+        <input type="checkbox" class="toggle-switch" id="delete-toggle" onchange="toggleDeleteFeature()">
+    </div>
+</div>
+
 <div class="header">
     <div class="header-row">
         <div class="app-title">
@@ -703,6 +935,69 @@
     let currentOrder = "asc";
     let historyStack = [];
     let currentView = "list"; // 'list' 或 'grid'
+    let isDeleteEnabled = false; // 删除功能开关状态
+
+    // 侧边栏相关函数
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        const hamburgerBtn = document.getElementById('hamburger-btn');
+        
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+        hamburgerBtn.classList.toggle('active');
+    }
+
+    function closeSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        const hamburgerBtn = document.getElementById('hamburger-btn');
+        
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+        hamburgerBtn.classList.remove('active');
+    }
+
+    // 切换删除功能开关
+    function toggleDeleteFeature() {
+        const toggle = document.getElementById('delete-toggle');
+        isDeleteEnabled = toggle.checked;
+        // 刷新当前文件列表以应用更改
+        if (currentPath || currentPath === '') {
+            loadFiles(currentPath);
+        }
+    }
+
+    // 删除文件函数
+    async function deleteFile(filePath, fileName) {
+        if (!isDeleteEnabled) {
+            alert('删除功能未开启，请在侧边栏中打开删除开关');
+            return;
+        }
+        
+        if (!confirm(`确定要永久删除文件 "${fileName}" 吗？此操作不可恢复！`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/delete/${encodeURIComponent(filePath)}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                alert('文件已删除');
+                // 重新加载文件列表
+                loadFiles(currentPath);
+            } else {
+                alert('删除失败：' + (result.error || '未知错误'));
+            }
+        } catch (error) {
+            console.error('删除失败:', error);
+            alert('删除失败：' + error.message);
+        }
+    }
 
     // 切换视图
     function switchView(view) {
@@ -769,86 +1064,91 @@
                 // 添加文件和文件夹
                 data.items.forEach(item => {
                     const li = document.createElement('li');
-                    li.className = 'file-item';
-
-                    let icon = 'far fa-file';
-                    let iconClass = 'other-icon';
-                    let typeText = '文件';
-
-                    if (item.is_dir) {
-                        icon = 'far fa-folder';
-                        iconClass = 'folder-icon';
-                        typeText = '文件夹';
-                    } else if (item.is_video) {
-                        icon = 'fas fa-film';
-                        iconClass = 'video-icon';
-                        typeText = '视频';
-                    } else if (item.is_image) {
-                        icon = 'far fa-image';
-                        iconClass = 'image-icon';
-                        typeText = '图片';
-                    }
-
-                    // 根据视图模式生成不同的HTML结构
-                    if (currentView === 'grid') {
-                        // 平铺视图
-                        li.innerHTML = `
-                            <div class="thumbnail-container">
-                                ${item.has_thumbnail ?
-                                    `<img src="${API_BASE_URL}${item.thumbnail}" class="thumbnail" onerror="this.parentNode.innerHTML='<i class=\'${icon} file-icon ${iconClass}\'></i>'">` :
-                                    `<i class="${icon} file-icon ${iconClass}"></i>`}
-                                <div class="file-type-badge">${typeText}</div>
-                            </div>
-                            <div class="file-info">
-                                <div class="file-name">${item.name}</div>
-                                <div class="file-meta">
-                                    <span>${item.date}</span>
-                                    <span>${item.is_dir ? '' : formatFileSize(item.size)}</span>
-                                </div>
-                            </div>
-                        `;
+                    
+                    // 仅在列表视图且删除功能开启时，添加滑动删除功能
+                    if (currentView === 'list' && !item.is_dir && isDeleteEnabled) {
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'file-item-wrapper';
+                        
+                        // 创建删除按钮
+                        const deleteAction = document.createElement('div');
+                        deleteAction.className = 'delete-action';
+                        deleteAction.innerHTML = '<i class="fas fa-trash"></i> 删除';
+                        deleteAction.onclick = (e) => {
+                            e.stopPropagation();
+                            deleteFile(item.path, item.name);
+                        };
+                        
+                        // 创建文件内容
+                        const fileContent = document.createElement('div');
+                        fileContent.className = 'file-item-content';
+                        fileContent.innerHTML = generateFileItemHTML(item, 'list');
+                        
+                        // 添加滑动事件
+                        let startX, currentX;
+                        let isSwiping = false;
+                        
+                        fileContent.addEventListener('touchstart', (e) => {
+                            startX = e.touches[0].clientX;
+                            isSwiping = true;
+                        }, { passive: true });
+                        
+                        fileContent.addEventListener('touchmove', (e) => {
+                            if (!isSwiping) return;
+                            currentX = e.touches[0].clientX;
+                            const diff = startX - currentX;
+                            if (diff > 50) {
+                                wrapper.classList.add('swiping');
+                            } else if (diff < 10) {
+                                wrapper.classList.remove('swiping');
+                            }
+                        }, { passive: true });
+                        
+                        fileContent.addEventListener('touchend', () => {
+                            isSwiping = false;
+                        });
+                        
+                        // 鼠标事件支持
+                        fileContent.addEventListener('mousedown', (e) => {
+                            startX = e.clientX;
+                            isSwiping = true;
+                        });
+                        
+                        fileContent.addEventListener('mousemove', (e) => {
+                            if (!isSwiping) return;
+                            currentX = e.clientX;
+                            const diff = startX - currentX;
+                            if (diff > 50) {
+                                wrapper.classList.add('swiping');
+                            } else if (diff < 10) {
+                                wrapper.classList.remove('swiping');
+                            }
+                        });
+                        
+                        fileContent.addEventListener('mouseup', () => {
+                            isSwiping = false;
+                        });
+                        
+                        fileContent.addEventListener('mouseleave', () => {
+                            isSwiping = false;
+                        });
+                        
+                        wrapper.appendChild(deleteAction);
+                        wrapper.appendChild(fileContent);
+                        li.appendChild(wrapper);
+                        
+                        // 点击文件内容触发原有行为
+                        fileContent.onclick = () => {
+                            handleFileClick(item);
+                        };
                     } else {
-                        // 列表视图
-                        li.innerHTML = `
-                            ${item.has_thumbnail ?
-                                `<img src="${API_BASE_URL}${item.thumbnail}" class="thumbnail" onerror="this.style.display='none'">` :
-                                (item.is_video || item.is_image) ? '<div class="thumbnail"></div>' : ''}
-                            <i class="${icon} file-icon ${iconClass}"></i>
-                            <div class="file-info">
-                                <div class="file-name">${item.name}</div>
-                                <div class="file-meta">
-                                    <span>${item.date}</span>
-                                    <span>${item.is_dir ? '文件夹' : formatFileSize(item.size)}</span>
-                                </div>
-                            </div>
-                        `;
+                        // 普通模式（无删除功能或网格视图）
+                        li.className = 'file-item';
+                        li.innerHTML = generateFileItemHTML(item, currentView);
+                        li.onclick = () => {
+                            handleFileClick(item);
+                        };
                     }
-
-                    li.onclick = () => {
-                        if (item.is_dir) {
-                            loadFiles(item.path);
-                        } else if (item.is_video) {
-                            playVideo(item.path, item.name);
-                        } else if (item.is_image) {
-    previewImage(item.path, item.name);
-}else {
-    // 判断是否为文本文件（可扩展）
-    const textExtensions = [
-        '.txt', '.log', '.md', '.json', '.xml', '.yml', '.yaml',
-        '.ini', '.cfg', '.conf', '.csv', '.tsv', '.sql', '.sh',
-        '.bat', '.py', '.js', '.html', '.css', '.htm', '.env'
-    ];
-    const ext = item.name.toLowerCase().split('.').pop();
-    const isTextFile = textExtensions.includes('.' + ext);
-
-    if (isTextFile) {
-        previewTextFile(item.path, item.name);
-    } else {
-        // 非文本文件：下载或打开
-        window.open(`${API_BASE_URL}/stream/${item.path}`, '_blank');
-    }
-}
-                    };
 
                     list.appendChild(li);
                 });
@@ -1121,6 +1421,86 @@ function previewImage(path, name) {
             </svg>
         `);
     };
+}
+
+// 生成文件项 HTML 的辅助函数
+function generateFileItemHTML(item, viewMode) {
+    let icon = 'far fa-file';
+    let iconClass = 'other-icon';
+    let typeText = '文件';
+
+    if (item.is_dir) {
+        icon = 'far fa-folder';
+        iconClass = 'folder-icon';
+        typeText = '文件夹';
+    } else if (item.is_video) {
+        icon = 'fas fa-film';
+        iconClass = 'video-icon';
+        typeText = '视频';
+    } else if (item.is_image) {
+        icon = 'far fa-image';
+        iconClass = 'image-icon';
+        typeText = '图片';
+    }
+
+    if (viewMode === 'grid') {
+        return `
+            <div class="thumbnail-container">
+                ${item.has_thumbnail ?
+                    `<img src="${API_BASE_URL}${item.thumbnail}" class="thumbnail" onerror="this.parentNode.innerHTML='<i class=\\'${icon} file-icon ${iconClass}\\'></i>'">` :
+                    `<i class="${icon} file-icon ${iconClass}"></i>`}
+                <div class="file-type-badge">${typeText}</div>
+            </div>
+            <div class="file-info">
+                <div class="file-name">${item.name}</div>
+                <div class="file-meta">
+                    <span>${item.date}</span>
+                    <span>${item.is_dir ? '' : formatFileSize(item.size)}</span>
+                </div>
+            </div>
+        `;
+    } else {
+        return `
+            ${item.has_thumbnail ?
+                `<img src="${API_BASE_URL}${item.thumbnail}" class="thumbnail" onerror="this.style.display='none'">` :
+                (item.is_video || item.is_image) ? '<div class="thumbnail"></div>' : ''}
+            <i class="${icon} file-icon ${iconClass}"></i>
+            <div class="file-info">
+                <div class="file-name">${item.name}</div>
+                <div class="file-meta">
+                    <span>${item.date}</span>
+                    <span>${item.is_dir ? '文件夹' : formatFileSize(item.size)}</span>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// 处理文件点击的辅助函数
+function handleFileClick(item) {
+    if (item.is_dir) {
+        loadFiles(item.path);
+    } else if (item.is_video) {
+        playVideo(item.path, item.name);
+    } else if (item.is_image) {
+        previewImage(item.path, item.name);
+    } else {
+        // 判断是否为文本文件（可扩展）
+        const textExtensions = [
+            '.txt', '.log', '.md', '.json', '.xml', '.yml', '.yaml',
+            '.ini', '.cfg', '.conf', '.csv', '.tsv', '.sql', '.sh',
+            '.bat', '.py', '.js', '.html', '.css', '.htm', '.env'
+        ];
+        const ext = item.name.toLowerCase().split('.').pop();
+        const isTextFile = textExtensions.includes('.' + ext);
+
+        if (isTextFile) {
+            previewTextFile(item.path, item.name);
+        } else {
+            // 非文本文件：下载或打开
+            window.open(`${API_BASE_URL}/stream/${item.path}`, '_blank');
+        }
+    }
 }
 </script>
 
