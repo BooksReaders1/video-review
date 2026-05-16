@@ -265,6 +265,31 @@ def player():
                            back_url=back_path)
 
 
+@app.route('/delete/<path:filename>', methods=['DELETE'])
+def delete_file(filename):
+    """删除文件接口"""
+    try:
+        safe_path = os.path.join(BASE_DIR, filename)
+        
+        # 安全检查：确保路径在 BASE_DIR 内
+        if not os.path.abspath(safe_path).startswith(os.path.abspath(BASE_DIR)):
+            return jsonify({"error": "Forbidden path"}), 403
+        
+        if not os.path.exists(safe_path):
+            return jsonify({"error": "File not found"}), 404
+        
+        if os.path.isdir(safe_path):
+            return jsonify({"error": "Cannot delete directories"}), 400
+        
+        # 永久删除文件
+        os.remove(safe_path)
+        
+        return jsonify({"message": "File deleted successfully"})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
