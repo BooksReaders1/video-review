@@ -403,6 +403,27 @@
             padding-bottom: 10px;
             border-bottom: 1px solid var(--border-color);
             font-size: 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .search-back-btn {
+            background: #f1f3f4;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+            border: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .search-back-btn:hover {
+            background: #e8eaed;
         }
 
         #video-container {
@@ -568,7 +589,12 @@
 </div>
 
 <div class="search-results" id="search-results">
-    <h3><i class="fas fa-search"></i> 搜索结果</h3>
+    <h3>
+        <span><i class="fas fa-search"></i> 搜索结果</span>
+        <button class="search-back-btn" onclick="closeSearch()">
+            <i class="fas fa-arrow-left"></i> 返回
+        </button>
+    </h3>
     <ul class="file-list list-view" id="search-results-list"></ul>
     <div class="empty-state" id="search-empty-state" style="display: none;">
         <i class="fas fa-search" style="font-size: 48px; margin-bottom: 15px; opacity: 0.3;"></i>
